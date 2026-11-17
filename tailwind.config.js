@@ -1,55 +1,38 @@
-/** @type {import('tailwindcss').Config} */
-// ─────────────────────────────────────────────────────────────
-//  Premier Taxis – Tailwind config
-//  Brand colours live here. Change them, then:
-//    npm install   (first time only)
-//    npm run build
-// ─────────────────────────────────────────────────────────────
+/** Premier Taxis – Tailwind config. Colours are named by role. */
 module.exports = {
-  content: ['./*.html', './assets/js/**/*.js'],
+  content: ['./index.html', './thanks.html', './404.html', './assets/js/main.js'],
   theme: {
     extend: {
       colors: {
-        // Deep maroon – the main colour of the Premier Taxis logo (#680107)
-        // and the red used on every flyer
-        claret: {
-          50: '#fbf2f2',
-          100: '#f5e1e1',
-          200: '#e9bcbd',
-          600: '#8a0b12',
-          700: '#7a050c',
-          800: '#680107',
-          900: '#4a0105', // banner shadow tone (#480102)
-          950: '#2c0003',
-        },
-        // Gold – the logo lettering (#fad737 → #f8ba07)
-        gold: {
-          100: '#fef6d4',
-          200: '#fdeba0',
-          300: '#fad737',
-          400: '#f8c51c',
-          500: '#f0ae07',
-          600: '#c98a04',
-        },
-        // Warm off-white paper – softens the white of the logo ring
-        paper: {
-          50: '#fffdf8',
-          100: '#fbf6ec',
-          200: '#f3ead8',
-        },
-        ink: '#221516', // near-black with a hint of maroon for body text
+        // ACTION – the deep claret of the round Premier Taxis badge (#680107). Call, Book, links. Nothing else uses it as a fill.
+        action: { DEFAULT: '#680107', hover: '#82101a', press: '#4f0005' },
+        // BRAND – darker claret from the banner shadow (#480102). Dark bands, footer.
+        brand: { DEFAULT: '#480102', deep: '#2e0003', soft: '#f3e3df' },
+        // HIGHLIGHT – the taxi-sign amber of the badge lettering (#f8ba07 / #fad737). Road lines, markers, illustration fills.
+        highlight: { DEFAULT: '#f8ba07', light: '#fad737', pale: '#fdf1c7' },
+        // ACCENT – forget-me-not blue from the dementia-friendly symbol on their badge. Small accessibility icons only.
+        accent: { DEFAULT: '#2f62a8', pale: '#e4ecf7' },
+        // SURFACE – warm paper neutrals
+        surface: { DEFAULT: '#fbf6ec', white: '#fffdf8', line: '#eadfcc', warm: '#f4ebdb' },
+        // INK – text
+        ink: { DEFAULT: '#241416', soft: '#5b4a47', faint: '#8a7a74' },
       },
       fontFamily: {
-        display: ['Fraunces', 'Georgia', 'serif'],
-        sans: ['Figtree', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        display: ['"Young Serif"', 'Georgia', 'serif'],
+        sans: ['"Hanken Grotesk"', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
+      maxWidth: { site: '76rem' },
       keyframes: {
-        marquee: { to: { transform: 'translateX(-50%)' } },
-        drift: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-6px)' } },
+        drive: { '0%': { transform: 'translateX(-160px)' }, '100%': { transform: 'translateX(calc(100vw + 160px))' } },
+        dash: { to: { strokeDashoffset: '-48' } },
+        pulse2: { '0%': { transform: 'scale(1)', opacity: '.55' }, '100%': { transform: 'scale(2.3)', opacity: '0' } },
+        bob: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-5px)' } },
       },
       animation: {
-        marquee: 'marquee 38s linear infinite',
-        drift: 'drift 6s ease-in-out infinite',
+        drive: 'drive 18s linear infinite',
+        dash: 'dash 1.6s linear infinite',
+        pulse2: 'pulse2 2.2s cubic-bezier(.2,.6,.3,1) infinite',
+        bob: 'bob 4s ease-in-out infinite',
       },
     },
   },

@@ -1,182 +1,163 @@
-/* Premier Taxis – site behaviour (vanilla JS, no dependencies) */
+/* Premier Taxis – site behaviour (vanilla JS) */
 (function () {
-  'use strict';
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var $ = function (s, c) { return (c || document).querySelector(s); };
-  var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+  const $ = (s, c = document) => c.querySelector(s);
+  const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ── Header: solid background once scrolled ───────────── */
-  var header = $('[data-header]');
-  var menuOpen = false;
-  function onScroll() {
-    var on = window.scrollY > 10 || menuOpen;
-    header.classList.toggle('bg-paper-50/95', on);
-    header.classList.toggle('backdrop-blur', on);
-    header.classList.toggle('shadow-[0_8px_30px_-18px_rgba(74,1,5,.35)]', on && !menuOpen);
-  }
-  onScroll();
-  window.addEventListener('scroll', onScroll, { passive: true });
+  // hero entrance once fonts are ready
+  const go = () => document.documentElement.classList.add('loaded');
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => requestAnimationFrame(go));
+  setTimeout(go, 1200);
 
-  /* ── Mobile menu ──────────────────────────────────────── */
-  var btn = $('[data-menu-btn]'), menu = $('[data-menu]');
-  if (btn && menu) {
-    var setMenu = function (open) {
-      menuOpen = open;
-      btn.setAttribute('aria-expanded', open);
-      menu.classList.toggle('opacity-0', !open);
-      menu.classList.toggle('pointer-events-none', !open);
-      $('[data-bar1]').style.transform = open ? 'translateY(6px) rotate(45deg)' : '';
-      var b2 = $('[data-bar2]');
-      b2.style.transform = open ? 'translateY(-6px) rotate(-45deg)' : '';
-      b2.style.width = open ? '1.5rem' : '';
-      document.body.style.overflow = open ? 'hidden' : '';
-      onScroll();
-    };
-    btn.addEventListener('click', function () { setMenu(!menuOpen); });
-    $$('a', menu).forEach(function (a) { a.addEventListener('click', function () { setMenu(false); }); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && menuOpen) setMenu(false); });
-  }
-
-  /* ── Scroll reveals ───────────────────────────────────── */
-  var reveals = $$('.reveal');
-  if (reduce || !('IntersectionObserver' in window)) {
-    reveals.forEach(function (el) { el.classList.add('is-in'); });
-  } else {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); } });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
-    reveals.forEach(function (el) { io.observe(el); });
-  }
-
-  /* ── Step path: dashed line draws down on scroll ───────── */
-  var steps = $('[data-steps]'), line = $('[data-step-line]');
-  if (steps && line && !reduce && 'IntersectionObserver' in window) {
-    var svg = line.parentNode;
-    svg.style.clipPath = 'inset(0 0 100% 0)';
-    svg.style.transition = 'clip-path 1.6s cubic-bezier(.6,0,.2,1)';
-    var so = new IntersectionObserver(function (en) {
-      if (en[0].isIntersecting) { svg.style.clipPath = 'inset(0 0 0 0)'; so.disconnect(); }
-    }, { threshold: 0.4 });
-    so.observe(steps);
-  }
-
-  /* ── Services explorer (tabs) ─────────────────────────── */
-  var tabs = $$('[role="tab"]');
-  function selectTab(tab, focus) {
-    tabs.forEach(function (t) {
-      var on = t === tab;
-      t.setAttribute('aria-selected', on);
-      t.tabIndex = on ? 0 : -1;
-      var p = document.getElementById(t.getAttribute('aria-controls'));
-      p.hidden = !on;
-      p.classList.toggle('is-active', on);
+  // header state + active nav
+  const hdr = $('#hdr');
+  const onScroll = () => hdr.classList.toggle('scrolled', window.scrollY > 24);
+  onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  const navLinks = $$('.nav a');
+  const secIO = new IntersectionObserver((es) => {
+    es.forEach((e) => {
+      if (!e.isIntersecting) return;
+      navLinks.forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id));
     });
-    if (focus) tab.focus();
-    if (window.innerWidth < 1024) {
-      var list = tab.parentNode;
-      list.scrollTo({ left: tab.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
-    }
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  ['top', 'services', 'accessible', 'tours', 'booking', 'faq', 'contact'].forEach((id) => { const el = document.getElementById(id); if (el) secIO.observe(el); });
+
+  // mobile menu
+  const menu = $('#menu'), mBtn = $('#menuBtn');
+  const setMenu = (open) => {
+    menu.classList.toggle('open', open); mBtn.setAttribute('aria-expanded', open);
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (open) $('#menuClose').focus();
+  };
+  mBtn.addEventListener('click', () => setMenu(true));
+  $('#menuClose').addEventListener('click', () => { setMenu(false); mBtn.focus(); });
+  $$('#menu a').forEach((a) => a.addEventListener('click', () => setMenu(false)));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menu.classList.contains('open')) setMenu(false); });
+
+  // scroll reveals
+  const revIO = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); revIO.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+  $$('.reveal, .reveal-l, .steps, .cut').forEach((el) => revIO.observe(el));
+
+  // pause ambient loops when offscreen
+  const pauseIO = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle('paused', !e.isIntersecting)));
+  $$('.road, #accessible, #top').forEach((el) => pauseIO.observe(el));
+
+  // hero cursor parallax (desktop only)
+  const art = $('#heroArt');
+  if (art && !reduce && window.matchMedia('(pointer:fine)').matches) {
+    const layers = $$('.parallax', art);
+    $('#top').addEventListener('pointermove', (e) => {
+      const r = art.getBoundingClientRect();
+      const x = (e.clientX - (r.left + r.width / 2)) / r.width, y = (e.clientY - (r.top + r.height / 2)) / r.height;
+      layers.forEach((l) => { const d = +l.dataset.depth || 8; l.style.translate = `${(-x * d).toFixed(1)}px ${(-y * d).toFixed(1)}px`; });
+    });
   }
-  tabs.forEach(function (t, i) {
-    t.addEventListener('click', function () { selectTab(t); });
-    t.addEventListener('keydown', function (e) {
-      var k = e.key, n = null;
+
+  // services explorer
+  const tabs = $$('[role=tab]');
+  const select = (t, focus) => {
+    tabs.forEach((x) => {
+      const on = x === t; x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
+      const p = document.getElementById(x.getAttribute('aria-controls'));
+      if (on) { p.hidden = false; p.classList.toggle('svc-panel', false); void p.offsetWidth; p.classList.add('svc-panel'); } else p.hidden = true;
+    });
+    if (focus) t.focus();
+    if (window.innerWidth < 1024) t.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reduce ? 'auto' : 'smooth' });
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => select(t));
+    t.addEventListener('keydown', (e) => {
+      const k = e.key; let n = null;
       if (k === 'ArrowDown' || k === 'ArrowRight') n = tabs[(i + 1) % tabs.length];
       if (k === 'ArrowUp' || k === 'ArrowLeft') n = tabs[(i - 1 + tabs.length) % tabs.length];
-      if (k === 'Home') n = tabs[0];
-      if (k === 'End') n = tabs[tabs.length - 1];
-      if (n) { e.preventDefault(); selectTab(n, true); }
+      if (n) { e.preventDefault(); select(n, true); }
     });
   });
+  // "book" links preselect the form
+  $$('.svc-book').forEach((a) => a.addEventListener('click', () => { const s = $('#f-service'); if (s && a.dataset.service) s.value = a.dataset.service; }));
 
-  /* ── "Book this" buttons pre-select the service ──────── */
-  var select = $('#f-service');
-  $$('[data-service]').forEach(function (a) {
-    a.addEventListener('click', function () { if (select) select.value = a.getAttribute('data-service'); });
-  });
-
-  /* ── Lightbox (arrows, Esc, swipe) ─────────────────────── */
-  var lb = $('[data-lb]');
-  if (lb) {
-    var lbImg = $('[data-lb-img]'), lbCap = $('[data-lb-cap]');
-    var items = $$('[data-lightbox]'), idx = 0, lastFocus = null;
-    var show = function (i) {
-      idx = (i + items.length) % items.length;
-      var it = items[idx], img = $('img', it);
-      lbImg.src = it.getAttribute('data-src');
-      lbImg.alt = img ? img.alt : '';
-      lbCap.textContent = it.getAttribute('data-caption') || '';
+  // accessible taxi cutaway
+  const notes = [
+    ['Wheelchair space', 'Room for a small to medium-sized wheelchair in our Peugeot Horizon.', 'i-wheelchair'],
+    ['A seat for a companion', 'One more passenger can travel alongside – a carer, a partner or a friend.', 'i-heart'],
+    ['Dogs welcome', 'We’re dog friendly, so assistance dogs and pets can come along too.', 'i-paw'],
+    ['Trained, patient drivers', 'Our drivers are fully trained, supportive, caring and patient. We’re autism and dementia friendly.', 'i-infinity'],
+    ['Tell us before you travel', 'When you book, let us know anything you feel the driver should know, in case of an emergency.', 'i-text'],
+    ['A larger chair?', 'We work closely with other WAV drivers, so we may be able to help through one of our partners.', 'i-wheelchair'],
+  ];
+  const hots = $$('.hot');
+  const dots = $('#noteDots');
+  let cur = 0;
+  if (dots) {
+    notes.forEach(() => { const d = document.createElement('span'); dots.appendChild(d); });
+    const show = (i) => {
+      cur = (i + notes.length) % notes.length;
+      const [t, x, ic] = notes[cur];
+      $('#noteNum').textContent = cur + 1; $('#noteTitle').textContent = t; $('#noteText').textContent = x;
+      $('#noteIco use').setAttribute('href', '#' + ic);
+      hots.forEach((h, j) => h.classList.toggle('on', j === cur));
+      $$('span', dots).forEach((d, j) => { d.className = 'h-2 rounded-full transition-all duration-300 ' + (j === cur ? 'w-6 bg-highlight-light' : 'w-2 bg-white/25'); });
     };
-    var openLb = function (i) {
-      lastFocus = document.activeElement;
-      show(i);
-      lb.classList.remove('hidden'); lb.classList.add('flex');
-      document.body.style.overflow = 'hidden';
-      $('[data-lb-close]').focus();
-    };
-    var closeLb = function () {
-      lb.classList.add('hidden'); lb.classList.remove('flex');
-      document.body.style.overflow = '';
-      if (lastFocus) lastFocus.focus();
-    };
-    items.forEach(function (it, i) { it.addEventListener('click', function () { openLb(i); }); });
-    $('[data-lb-close]').addEventListener('click', closeLb);
-    $('[data-lb-prev]').addEventListener('click', function () { show(idx - 1); });
-    $('[data-lb-next]').addEventListener('click', function () { show(idx + 1); });
-    lb.addEventListener('click', function (e) { if (e.target === lb) closeLb(); });
-    document.addEventListener('keydown', function (e) {
-      if (lb.classList.contains('hidden')) return;
-      if (e.key === 'Escape') closeLb();
-      if (e.key === 'ArrowLeft') show(idx - 1);
-      if (e.key === 'ArrowRight') show(idx + 1);
-      if (e.key === 'Tab') {
-        var f = $$('button', lb).filter(function (b) { return b.offsetParent; });
-        var first = f[0], last = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
+    hots.forEach((h) => {
+      h.addEventListener('click', () => show(+h.dataset.i));
+      h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(+h.dataset.i); } });
     });
-    var sx = null;
-    lb.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
-    lb.addEventListener('touchend', function (e) {
-      if (sx === null) return;
-      var dx = e.changedTouches[0].clientX - sx;
-      if (Math.abs(dx) > 40) show(idx + (dx < 0 ? 1 : -1));
-      sx = null;
-    });
+    $('#notePrev').addEventListener('click', () => show(cur - 1));
+    $('#noteNext').addEventListener('click', () => show(cur + 1));
+    show(0);
   }
 
-  /* ── Marquee: duplicate the list for a seamless loop ─── */
-  var mq = $('[data-marquee]');
-  if (mq) { var copy = mq.firstElementChild.cloneNode(true); copy.setAttribute('aria-hidden', 'true'); mq.appendChild(copy); }
+  // lightbox
+  const items = $$('#gallery [data-full]');
+  const lb = $('#lb'), lbImg = $('#lbImg'), lbCap = $('#lbCap');
+  let li = 0, lastFocus = null;
+  const lbShow = (i) => {
+    li = (i + items.length) % items.length; const it = items[li];
+    lbImg.style.opacity = 0;
+    const img = new Image(); img.onload = () => { lbImg.src = it.dataset.full; lbImg.alt = $('img', it).alt; lbImg.style.opacity = 1; }; img.src = it.dataset.full;
+    lbCap.textContent = it.dataset.cap || '';
+  };
+  const lbOpen = (i) => { lastFocus = document.activeElement; lbShow(i); lb.classList.add('open'); document.body.style.overflow = 'hidden'; $('#lbClose').focus(); };
+  const lbClose = () => { lb.classList.toggle('open', false); document.body.style.overflow = ''; if (lastFocus) lastFocus.focus(); };
+  items.forEach((it, i) => it.addEventListener('click', () => lbOpen(i)));
+  $('#lbClose').addEventListener('click', lbClose);
+  $('#lbPrev').addEventListener('click', () => lbShow(li - 1));
+  $('#lbNext').addEventListener('click', () => lbShow(li + 1));
+  lb.addEventListener('click', (e) => { if (e.target === lb) lbClose(); });
+  document.addEventListener('keydown', (e) => {
+    if (!lb.classList.contains('open')) return;
+    if (e.key === 'Escape') lbClose();
+    if (e.key === 'ArrowLeft') lbShow(li - 1);
+    if (e.key === 'ArrowRight') lbShow(li + 1);
+  });
+  let sx = null;
+  lb.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+  lb.addEventListener('touchend', (e) => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) lbShow(li + (dx < 0 ? 1 : -1)); sx = null; });
 
-  /* ── Form: inline validation + submit state ───────────── */
-  var form = $('[data-form]');
+  // form: inline validation + sending state
+  const form = $('#quote');
   if (form) {
-    var fields = $$('.field', form);
-    var check = function (field) {
-      var input = $('input, select, textarea', field);
-      var ok = input.checkValidity() && input.value.trim() !== '';
-      field.classList.toggle('invalid', !ok);
-      input.setAttribute('aria-invalid', !ok);
+    const fields = $$('input:not([type=hidden]):not([name=_honey]), select, textarea', form);
+    const check = (f) => {
+      const ok = f.checkValidity() && (f.type !== 'email' || !f.value || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.value));
+      f.classList.toggle('bad', !ok); f.classList.toggle('ok', ok && !!f.value);
+      const err = f.parentElement.querySelector('.err'); if (err) err.classList.toggle('hidden', ok);
+      f.setAttribute('aria-invalid', !ok);
       return ok;
     };
-    fields.forEach(function (f) {
-      var input = $('input, select, textarea', f);
-      var err = $('.err', f);
-      if (err) { err.id = input.id + '-err'; input.setAttribute('aria-describedby', err.id); }
-      input.addEventListener('blur', function () { if (input.value) check(f); });
-      input.addEventListener('input', function () { if (f.classList.contains('invalid')) check(f); });
-      input.addEventListener('change', function () { if (f.classList.contains('invalid')) check(f); });
+    fields.forEach((f) => {
+      f.addEventListener('blur', () => { if (f.value || f.classList.contains('bad')) check(f); });
+      f.addEventListener('input', () => { if (f.classList.contains('bad')) check(f); });
+      f.addEventListener('change', () => { if (f.classList.contains('bad')) check(f); });
     });
-    form.addEventListener('submit', function (e) {
-      var bad = fields.filter(function (f) { return !check(f); });
-      if (bad.length) { e.preventDefault(); $('input, select, textarea', bad[0]).focus(); return; }
-      var b = $('[data-submit]', form);
-      b.disabled = true; b.classList.add('opacity-80');
-      $('[data-submit-label]', form).textContent = 'Sending…';
+    form.addEventListener('submit', (e) => {
+      const bad = fields.filter((f) => !check(f));
+      if (bad.length) { e.preventDefault(); bad[0].focus(); return; }
+      const b = $('button[type=submit]', form);
+      b.disabled = true; b.classList.add('opacity-90');
+      $('.lbl', b).textContent = 'Sending…'; $('.ico', b).classList.add('hidden'); $('.spin', b).classList.toggle('hidden', false);
     });
   }
 
-  var y = $('[data-year]'); if (y) y.textContent = new Date().getFullYear();
+  const yr = $('#yr'); if (yr) yr.textContent = new Date().getFullYear();
 })();
